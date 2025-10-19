@@ -8,9 +8,11 @@ from flask import Flask
 # ===============================
 # 🔐 Telegram Bot Token (Read from environment)
 # ===============================
-TOKEN = os.getenv("BOT_TOKEN")
-bot = telebot.TeleBot(TOKEN)
-app = Flask(__name__)
+import telebot
+import os
+
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+bot = telebot.TeleBot(BOT_TOKEN)
 
 # ===============================
 # 📁 Directory Setup

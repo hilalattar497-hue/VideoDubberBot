@@ -1,0 +1,10 @@
+pyTelegramBotAPI
+moviepy
+googletrans==4.0.0rc1
+SpeechRecognition
+pydub
+opencv-python
+pytesseract
+gTTS
+langdetect
+Pillow
