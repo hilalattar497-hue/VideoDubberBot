@@ -1,18 +1,24 @@
-import telebot
 import os
-import subprocess
 import uuid
+import subprocess
 import threading
 from flask import Flask
+import telebot
 
 # ===============================
 # 🔐 Telegram Bot Token (Read from environment)
 # ===============================
-import telebot
-import os
-
-BOT_TOKEN = os.getenv("BOT_TOKEN")
+BOT_TOKEN = os.getenv("8283451217:AAEikG0PQtBgsKtxAGfp3hZXRbMbbXNsYj0")
 bot = telebot.TeleBot(BOT_TOKEN)
+
+# ===============================
+# 🌍 Flask App (for Render keep-alive)
+# ===============================
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "🤖 Bot is running and ready to dub your videos!"
 
 # ===============================
 # 📁 Directory Setup
@@ -90,7 +96,6 @@ def handle_language_choice(message):
         parse_mode="Markdown"
     )
 
-    # 🎬 Process video with chosen language
     output_path = os.path.join(OUTPUT_DIR, f"dubbed_{uuid.uuid4()}.mp4")
 
     try:
@@ -104,16 +109,8 @@ def handle_language_choice(message):
                 bot.send_video(chat_id, vid, caption="🎬 Here's your dubbed video!")
         else:
             bot.reply_to(message, "⚠️ Dubbed video not found. Something went wrong.")
-
     except Exception as e:
         bot.reply_to(message, f"❌ Error while processing video: {e}")
-
-# ===============================
-# 🌍 Flask Keep-Alive Endpoint
-# ===============================
-@app.route('/')
-def home():
-    return "🤖 Bot is running and ready to dub your videos!"
 
 # ===============================
 # 🚀 Run Flask + Bot Together
