@@ -8,9 +8,21 @@ import telebot
 # ===============================
 # 🔐 Telegram Bot Token (Read from environment)
 # ===============================
-BOT_TOKEN = os.getenv("8283451217:AAEikG0PQtBgsKtxAGfp3hZXRbMbbXNsYj0")
-bot = telebot.TeleBot(BOT_TOKEN)
+from dotenv import load_dotenv
+import os
+import telebot
+from flask import Flask
+import threading
+import subprocess
+import uuid
 
+# 🌍 Load environment variables
+load_dotenv()
+
+# 🔑 Telegram Bot Token (read from Render environment)
+BOT_TOKEN = os.getenv("8283451217:AAEikG0PQtBgsKtxAGfp3hZXRbMbbXNsYj0")
+
+bot = telebot.TeleBot(BOT_TOKEN)
 # ===============================
 # 🌍 Flask App (for Render keep-alive)
 # ===============================
