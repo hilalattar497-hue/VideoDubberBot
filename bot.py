@@ -2,27 +2,28 @@ import os
 import uuid
 import subprocess
 import threading
+import time
 from flask import Flask
 import telebot
-
-# ===============================
-# 🔐 Telegram Bot Token (Read from environment)
-# ===============================
 from dotenv import load_dotenv
-import os
-import telebot
-from flask import Flask
-import threading
-import subprocess
-import uuid
 
-# 🌍 Load environment variables
-load_dotenv()
+# ===============================
+# 🌍 Load Environment Variables
+# ===============================
+# ✅ Load environment variables from an absolute path
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+ENV_PATH = os.path.join(BASE_DIR, ".env")
+load_dotenv(dotenv_path=ENV_PATH)
 
-# 🔑 Telegram Bot Token (read from Render environment)
-BOT_TOKEN = os.getenv("8283451217:AAEikG0PQtBgsKtxAGfp3hZXRbMbbXNsYj0")
+# ✅ Load Telegram Bot Token from .env
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 
+if not BOT_TOKEN:
+    raise ValueError("❌ BOT_TOKEN not found! Please set it in your .env file.")
+
+# ✅ Initialize Telegram Bot
 bot = telebot.TeleBot(BOT_TOKEN)
+
 # ===============================
 # 🌍 Flask App (for Render keep-alive)
 # ===============================
@@ -30,12 +31,11 @@ app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "🤖 Bot is running and ready to dub your videos!"
+    return "🤖 Nazilal Dubs Bot is live and ready to dub your videos!"
 
 # ===============================
 # 📁 Directory Setup
 # ===============================
-BASE_DIR = os.getcwd()
 INPUT_DIR = os.path.join(BASE_DIR, "uploads")
 OUTPUT_DIR = os.path.join(BASE_DIR, "outputs")
 SCRIPT_PATH = os.path.join(BASE_DIR, "video_dubber_plus.py")
@@ -43,7 +43,9 @@ SCRIPT_PATH = os.path.join(BASE_DIR, "video_dubber_plus.py")
 os.makedirs(INPUT_DIR, exist_ok=True)
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-# 🌐 User Session Storage
+# ===============================
+# 💾 User Sessions
+# ===============================
 user_sessions = {}
 
 # ===============================
@@ -90,7 +92,7 @@ def handle_video(message):
 # ===============================
 # 🌐 Handle Language Choice
 # ===============================
-@bot.message_handler(func=lambda msg: msg.text in ["1", "2", "3"])
+@bot.message_handler(func=lambda msg: msg.text.strip() in ["1", "2", "3"])
 def handle_language_choice(message):
     chat_id = message.chat.id
 
@@ -125,12 +127,20 @@ def handle_language_choice(message):
         bot.reply_to(message, f"❌ Error while processing video: {e}")
 
 # ===============================
-# 🚀 Run Flask + Bot Together
+# 🚀 Start Bot + Flask (Keep Alive)
 # ===============================
 def start_bot():
     print("🤖 Bot is running... Waiting for messages.")
-    bot.infinity_polling(timeout=60, long_polling_timeout=60)
+    while True:
+        try:
+            bot.infinity_polling(timeout=60, long_polling_timeout=60)
+        except Exception as e:
+            print(f"⚠️ Polling error: {e}")
+            print("🔁 Restarting bot polling in 5 seconds...")
+            time.sleep(5)
 
 if __name__ == "__main__":
-    threading.Thread(target=start_bot).start()
-    app.run(host="0.0.0.0", port=10000)
+    threading.Thread(target=start_bot, daemon=True).start()
+    port = int(os.environ.get("PORT", 10000))
+    print(f"🌐 Flask server running on port {port}")
+    app.run(host="0.0.0.0", port=port)
