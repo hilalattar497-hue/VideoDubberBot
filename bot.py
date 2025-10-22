@@ -1,37 +1,23 @@
 import os
 import uuid
 import subprocess
-import threading
-import time
-from flask import Flask
+from flask import Flask, request
 import telebot
 from dotenv import load_dotenv
 
 # ===============================
 # 🌍 Load Environment Variables
 # ===============================
-# ✅ Load environment variables from an absolute path
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ENV_PATH = os.path.join(BASE_DIR, ".env")
 load_dotenv(dotenv_path=ENV_PATH)
 
-# ✅ Load Telegram Bot Token from .env
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-
 if not BOT_TOKEN:
     raise ValueError("❌ BOT_TOKEN not found! Please set it in your .env file.")
 
-# ✅ Initialize Telegram Bot
 bot = telebot.TeleBot(BOT_TOKEN)
-
-# ===============================
-# 🌍 Flask App (for Render keep-alive)
-# ===============================
 app = Flask(__name__)
-
-@app.route('/')
-def home():
-    return "🤖 Nazilal Dubs Bot is live and ready to dub your videos!"
 
 # ===============================
 # 📁 Directory Setup
@@ -43,13 +29,10 @@ SCRIPT_PATH = os.path.join(BASE_DIR, "video_dubber_plus.py")
 os.makedirs(INPUT_DIR, exist_ok=True)
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-# ===============================
-# 💾 User Sessions
-# ===============================
 user_sessions = {}
 
 # ===============================
-# 🤖 Start Command
+# 🤖 Bot Commands
 # ===============================
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
@@ -65,9 +48,6 @@ def send_welcome(message):
         parse_mode="Markdown"
     )
 
-# ===============================
-# 🎥 Handle Uploaded Video
-# ===============================
 @bot.message_handler(content_types=['video'])
 def handle_video(message):
     chat_id = message.chat.id
@@ -89,13 +69,9 @@ def handle_video(message):
         "Reply with 1, 2, or 3."
     )
 
-# ===============================
-# 🌐 Handle Language Choice
-# ===============================
 @bot.message_handler(func=lambda msg: msg.text.strip() in ["1", "2", "3"])
 def handle_language_choice(message):
     chat_id = message.chat.id
-
     if chat_id not in user_sessions:
         bot.reply_to(message, "⚠️ Please send a video first.")
         return
@@ -103,6 +79,7 @@ def handle_language_choice(message):
     lang_map = {"1": "en", "2": "ar", "3": "fa"}
     lang_code = lang_map[message.text.strip()]
     video_path = user_sessions[chat_id]["video_path"]
+    output_path = os.path.join(OUTPUT_DIR, f"dubbed_{uuid.uuid4()}.mp4")
 
     bot.reply_to(
         message,
@@ -110,37 +87,54 @@ def handle_language_choice(message):
         parse_mode="Markdown"
     )
 
-    output_path = os.path.join(OUTPUT_DIR, f"dubbed_{uuid.uuid4()}.mp4")
-
     try:
-        subprocess.run(
+        result = subprocess.run(
             ["python", SCRIPT_PATH, video_path, output_path, lang_code],
-            check=True
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
         )
 
         if os.path.exists(output_path):
             with open(output_path, "rb") as vid:
                 bot.send_video(chat_id, vid, caption="🎬 Here's your dubbed video!")
+            # ✅ Cleanup user session after success
+            user_sessions.pop(chat_id, None)
         else:
             bot.reply_to(message, "⚠️ Dubbed video not found. Something went wrong.")
     except Exception as e:
-        bot.reply_to(message, f"❌ Error while processing video: {e}")
+        bot.reply_to(message, f"❌ Error: {e}")
 
 # ===============================
-# 🚀 Start Bot + Flask (Keep Alive)
+# 🌐 Flask Webhook Routes
 # ===============================
-def start_bot():
-    print("🤖 Bot is running... Waiting for messages.")
-    while True:
-        try:
-            bot.infinity_polling(timeout=60, long_polling_timeout=60)
-        except Exception as e:
-            print(f"⚠️ Polling error: {e}")
-            print("🔁 Restarting bot polling in 5 seconds...")
-            time.sleep(5)
+@app.route('/' + BOT_TOKEN, methods=['POST'])
+def webhook():
+    json_str = request.stream.read().decode('utf-8')
+    update = telebot.types.Update.de_json(json_str)
+    bot.process_new_updates([update])
+    return '', 200
 
-if __name__ == "__main__":
-    threading.Thread(target=start_bot, daemon=True).start()
-    port = int(os.environ.get("PORT", 10000))
+@app.route('/')
+def index():
+    return "🤖 Nazilal Dubs Bot is live with webhook mode!"
+
+# ===============================
+# 🚀 Main Entry Point
+# ===============================
+if __name__ == '__main__':
+    render_host = os.getenv("RENDER_EXTERNAL_URL", "<your-render-app-name>.onrender.com")
+    if not render_host.startswith("https://"):
+        render_host = f"https://{render_host}"
+    render_url = f"{render_host}/{BOT_TOKEN}"
+
+    bot.remove_webhook()
+    bot.set_webhook(url=render_url)
+
+    # ✅ Confirm webhook status
+    set_status = bot.get_webhook_info()
+    print(f"✅ Webhook active: {set_status.url}")
+
+    port = int(os.environ.get('PORT', 10000))
     print(f"🌐 Flask server running on port {port}")
-    app.run(host="0.0.0.0", port=port)
+    app.run(host='0.0.0.0', port=port)

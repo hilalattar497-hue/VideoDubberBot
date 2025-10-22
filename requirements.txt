@@ -1,5 +1,7 @@
-pyTelegramBotAPI
-Flask
-python-dotenv
-moviepy
-requests
+Flask==3.0.3
+pyTelegramBotAPI==4.24.0
+python-dotenv==1.0.1
+opencv-python==4.10.0.84
+moviepy==1.0.3
+gTTS==2.5.3
+pydub==0.25.1
